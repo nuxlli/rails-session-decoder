@@ -10,7 +10,7 @@ describe('sessionDecoder', function() {
   var decoder = null;
 
   beforeEach(function() {
-    decoder = new sessionDecoder.RailsSessionDecode(secret);
+    decoder = new sessionDecoder(secret);
   });
 
   describe('Constructor', function() {
@@ -20,7 +20,7 @@ describe('sessionDecoder', function() {
 
     it('support old api', function() {
       var dec = sessionDecoder();
-      dec.should.be.instanceof(sessionDecoder.RailsSessionDecode);
+      dec.should.be.instanceof(sessionDecoder);
     });
   });
 

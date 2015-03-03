@@ -1,6 +1,11 @@
 var crypto = require('crypto');
 
 function RailsSessionDecode(secret) {
+  // Old api support
+  if (!(this instanceof arguments.callee) ) {
+    return new arguments.callee(secret);
+  }
+
   this.secret = secret;
   this.cookieSalt = 'encrypted cookie'; //Rails.application.config.action_dispatch.encrypted_cookie_salt
   this.signedCookieSalt = 'signed encrypted cookie'; //Rails.application.config.action_dispatch.encrypted_signed_cookie_salt
@@ -106,11 +111,4 @@ RailsSessionDecode.prototype = {
  *
  * @param {String} secret
  */
-module.exports = function(secret) {
-  return new RailsSessionDecode(secret);
-};
-
-/**
- * Rails Session Decoder
- */
-module.exports.RailsSessionDecode = RailsSessionDecode;
+module.exports = RailsSessionDecode;

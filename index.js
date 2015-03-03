@@ -8,49 +8,49 @@ function RailsSessionDecode(secret) {
   this.keyLength = 64;
 }
 
-function decodeCookie(cookie, isSignedCookie, next) {
-  if (!cookie) {
-    return next(new Error('cookie was empty.'))
-  }
-
-  var cookieSegments = cookie.split('--');
-  if (cookieSegments.length != 2) {
-    return next(new Error('invalid cookie format.'));
-  }
-
-  var sessionData = new Buffer(cookieSegments[0], 'base64');
-//    var signature = cookieSegments[1];
-
-  var sessionDataSegments = sessionData.toString('utf8').split('--');
-  if (sessionDataSegments.length != 2) {
-    return next(new Error('invalid cookie format.'));
-  }
-
-  var data = new Buffer(sessionDataSegments[0], 'base64');
-  var iv = new Buffer(sessionDataSegments[1], 'base64');
-  var salt = isSignedCookie ? this.signedCookieSalt : this.cookieSalt;
-
-  crypto.pbkdf2(this.secret, salt, this.iterations, this.keyLength, function(err, derivedKey) {
-    if (err) return next(err);
+RailsSessionDecode.prototype = {
+  decodeCookie: function(cookie, isSignedCookie, next) {
+    if (typeof(isSignedCookie) === 'function') {
+      next = isSignedCookie;
+      isSignedCookie = false;
+    }
 
     try {
-      var decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey.slice(0, 32), iv.slice(0, 16));
-      var decryptedData = decipher.update(data, 'binary', 'utf8') + decipher.final('utf8');
-
-      next(null, decryptedData);
-    } catch(e) {
-      next(e);
+      var opts = this.__prepare(cookie, isSignedCookie);
+    } catch (err) {
+      return next(err);
     }
-  });
-}
 
-RailsSessionDecode.prototype = {
-  decodeCookie: function(cookie, next) {
-    return decodeCookie.call(this, cookie, false, next);
+    var self = this;
+    crypto.pbkdf2(this.secret, opts.salt, this.iterations, this.keyLength, function(err, derivedKey) {
+      if (err) return next(err);
+
+      try {
+        var decryptedData = self.__decodeWithDerivedKey(derivedKey, opts.iv, opts.data);
+        next(null, decryptedData);
+      } catch(e) {
+        next(e);
+      }
+    });
+  },
+
+  decodeCookieSync: function(cookie, isSignedCookie) {
+    if (typeof(isSignedCookie) === 'function') {
+      next = isSignedCookie;
+      isSignedCookie = false;
+    }
+
+    var opts = this.__prepare(cookie, isSignedCookie);
+    var derivedKey    = crypto.pbkdf2Sync(this.secret, opts.salt, this.iterations, this.keyLength);
+    return this.__decodeWithDerivedKey(derivedKey, opts.iv, opts.data);
   },
 
   decodeSignedCookie: function(cookie, next) {
-    return decodeCookie.call(this, cookie, true, next);
+    return this.decodeCookie(cookie, true, next);
+  },
+
+  decodeSignedCookieSync: function(cookie) {
+    return this.decodeCookieSync(cookie, true);
   },
 
   setSecret: function(newSecret) {
@@ -72,6 +72,34 @@ RailsSessionDecode.prototype = {
   setKeyLength: function(newKeyLength) {
     this.keyLength = newKeyLength;
   },
+
+  __decodeWithDerivedKey: function(derivedKey, iv, data) {
+    var decipher = crypto.createDecipheriv('aes-256-cbc', derivedKey.slice(0, 32), iv.slice(0, 16));
+    return decipher.update(data, 'binary', 'utf8') + decipher.final('utf8');
+  },
+
+  __prepare: function(cookie, isSignedCookie) {
+    if (!cookie) {
+      throw new Error('cookie was empty.');
+    }
+
+    var cookieSegments = cookie.split('--');
+    if (cookieSegments.length != 2) {
+      throw new Error('invalid cookie format.');
+    }
+
+    var sessionData = new Buffer(cookieSegments[0], 'base64');
+    var sessionDataSegments = sessionData.toString('utf8').split('--');
+    if (sessionDataSegments.length != 2) {
+      throw new Error('invalid cookie format.');
+    }
+
+    return {
+      data : new Buffer(sessionDataSegments[0], 'base64'),
+      iv   : new Buffer(sessionDataSegments[1], 'base64'),
+      salt : isSignedCookie ? this.signedCookieSalt : this.cookieSalt,
+    }
+  }
 }
 
 /**

@@ -71,6 +71,37 @@ describe('sessionDecoder', function() {
     });
   });
 
+  describe('#decodeCookieSync', function() {
+    it('returns error when the cookie is not provided', function () {
+      var err;
+
+      try {
+        decoder.decodeCookieSync(null);
+      } catch (e) {
+        err = e;
+      }
+
+      err.should.be.ok;
+    });
+
+    it('returns error when the format invalid', function () {
+      var err;
+
+      try {
+        decoder.decodeCookieSync('InvalidCookie');
+      } catch (e) {
+        err = e;
+      }
+
+      err.should.be.ok;
+    });
+
+    it('returns the expected values', function () {
+      var result = decoder.decodeCookieSync(cookie);
+      JSON.parse(result).should.eql(session);
+    });
+  });
+
   describe('#decodeSignedCookie', function() {
     it('returns error when the cookie is not provided', function (done) {
       decoder.decodeSignedCookie(null, function(err, result) {
